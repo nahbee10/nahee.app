@@ -5,11 +5,13 @@ const Desire = require('../models/desire');
 const Anxiety = require('../models/anxiety');
 const Partner = require('../models/partner');
 const MyBody = require('../models/mybody');
+const MindCoeff = require('../models/mind/coeff');
 
 const router = new express.Router();
 const Promise = require("bluebird");
 
 var requestTimeout;
+var coeffsForWllngnssForReq;
 var levelOfDesireForReq;
 var levelOfCurrentAnxiety;
 var myPhysicalCondition;
@@ -34,6 +36,7 @@ router.post('/api/sex/request', (req, res) => {
 
 	Promise.resolve(getPartnerId(requestIP)).then(function() {
 		let promises = [];
+		promises.push(getMyMindCoeff("willingnessForReq"));
 	    promises.push(getMyDesireLevel(partnerId, requestedAction));
 		promises.push(getMyRecentAnxiety());
 		promises.push(getMyBodyCondition());
@@ -51,8 +54,8 @@ router.post('/api/sex/request', (req, res) => {
 			});
 		})
 		.then(function() {
-			if (counterForPromises == 3){
-				willingnessForReq = (0.7*levelOfDesireForReq + 0.3*myPhysicalCondition + 2*levelOfCurrentAnxiety)/3;
+			if (counterForPromises == 4){
+				willingnessForReq = (coeffsForWllngnssForReq[0]*levelOfDesireForReq + coeffsForWllngnssForReq[1]*myPhysicalCondition + coeffsForWllngnssForReq[2]*levelOfCurrentAnxiety)/3;
 				if (willingnessForReq > 6){
 					reqFromPartner.accepted = true;
 					reqFromPartner.save(function(err){
@@ -65,7 +68,7 @@ router.post('/api/sex/request', (req, res) => {
 					// 	res.status(406).send({message:"I don't want to do that"});
 					// });
 					worsenAnxietyWhile(function () { return levelOfCurrentAnxiety < 8; }).then(function(){
-						willingnessForReq = (0.7*levelOfDesireForReq + 0.3*myPhysicalCondition + 2*levelOfCurrentAnxiety)/3;
+						willingnessForReq = (coeffsForWllngnssForReq[0]*levelOfDesireForReq + coeffsForWllngnssForReq[1]*myPhysicalCondition + coeffsForWllngnssForReq[2]*levelOfCurrentAnxiety)/3;
 						if (willingnessForReq > 6){
 							reqFromPartner.accepted = true;
 							reqFromPartner.save(function(err){
@@ -105,6 +108,12 @@ function worsenCurrentAnxiety(){
 			}
 			console.log("success");
 		});
+	});
+}
+
+function getMyMindCoeff(coeffName){
+	return MindCoeff.find({name: coeffName}, function(err, mindCoeff){
+		coeffsForWllngnssForReq = mindCoeff.coeffs_arr;
 	});
 }
 
